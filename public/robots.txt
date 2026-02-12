@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://kosan.co.id/sitemap.xml
