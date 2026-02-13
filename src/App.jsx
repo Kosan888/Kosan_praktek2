@@ -1,15 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import Home from '@/pages/Home';
 import Profile from '@/pages/Profile'; 
 import PropertyDetail from '@/pages/PropertyDetail';
-import BookingPage from '@/pages/BookingPage';
 import PartnerRegistration from '@/pages/PartnerRegistration'; 
+// --- TAMBAHAN BARU: Import DashboardMitra ---
 import DashboardMitra from '@/pages/DashboardMitra'; 
+// --------------------------------------------
 import ForgotPassword from '@/pages/ForgotPassword';
 import UpdatePassword from '@/pages/UpdatePassword';
-
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/SupabaseAuthContext';
 
@@ -18,27 +18,25 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Helmet>
-          <title>Kosan - Hunian Nyaman & Modern</title>
+          <title>Kosan - Temukan Hunian Nyaman & Modern di Indonesia</title>
+          <meta name="description" content="Platform pemesanan kos dan apartemen dengan standar kualitas tinggi, aman, dan transparan di seluruh Indonesia." />
         </Helmet>
         
         <Routes>
-          {/* Halaman Utama */}
           <Route path="/" element={<Home />} />
-          
-          {/* Halaman Akun & Mitra */}
           <Route path="/profile" element={<Profile />} />
-          <Route path="/register-mitra" element={<PartnerRegistration />} /> 
-          <Route path="/dashboard-mitra" element={<DashboardMitra />} />
+          <Route path="/register-mitra" element={<PartnerRegistration />} />
           
-          {/* Halaman Booking */}
+          {/* --- TAMBAHAN BARU: Daftarkan Rute Dashboard --- */}
+          {/* Pastikan path ini sesuai dengan link di tombol Profile kamu */}
+          <Route path="/dashboard-mitra" element={<DashboardMitra />} /> 
+          {/* ------------------------------------------------ */}
+          
           <Route path="/property/:id" element={<PropertyDetail />} />
-          <Route path="/booking/:id" element={<BookingPage />} />
-
-          {/* Halaman Auth */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/update-password" element={<UpdatePassword />} />
           
-          {/* Fallback */}
+          {/* Catch-all route (Penjaga gawang terakhir) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         
