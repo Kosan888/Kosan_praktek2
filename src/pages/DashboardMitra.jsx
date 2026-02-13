@@ -1,299 +1,259 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Save, Check, LayoutGrid, Edit, Loader2, PlusCircle } from 'lucide-react';
-import { supabase } from '@/lib/customSupabaseClient'; 
-import { useAuth } from '@/contexts/SupabaseAuthContext'; 
-import { toast } from '@/components/ui/use-toast';
-import { useNavigate } from 'react-router-dom';
+import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, Check, Home } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-// --- KOMPONEN UTAMA DASHBOARD ---
-const DashboardMitra = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [myRooms, setMyRooms] = useState([]);
-  const [selectedRoomId, setSelectedRoomId] = useState(null); // Jika ada ID, tampilkan mode Editor
+// --- KONFIGURASI DURASI (Sesuai Request) ---
+const HOURLY_OPTIONS = [1, 2, 3, 4, 5, 6, 12, 24];
+const MONTHLY_OPTIONS = [1, 2, 3, 4, 5, 6, 12];
 
-  // 1. Fetch Kamar Milik Mitra saat halaman dibuka
-  useEffect(() => {
-    const fetchMyProperties = async () => {
-      try {
-        if(!user) return;
-        
-        // A. Cari property milik user ini
-        const { data: props, error: propError } = await supabase
-            .from('properties')
-            .select('id, name')
-            .eq('owner_id', user.id);
-            
-        if (propError) throw propError;
-
-        if (props && props.length > 0) {
-            // B. Ambil semua kamar dari properti tersebut
-            const propIds = props.map(p => p.id);
-            const { data: rooms, error: roomError } = await supabase
-                .from('rooms')
-                .select('*, properties(name)')
-                .in('property_id', propIds)
-                .order('room_number');
-            
-            if (roomError) throw roomError;
-            setMyRooms(rooms || []);
-        }
-      } catch (err) {
-        console.error(err);
-        toast({ title: "Gagal Memuat Data", description: "Periksa koneksi internet Anda.", variant: "destructive" });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchMyProperties();
-  }, [user]);
-
-  // Jika user memilih kamar, tampilkan Editor (Sub-Component di bawah)
-  if (selectedRoomId) {
-    return (
-        <RoomEditor 
-            roomId={selectedRoomId} 
-            onBack={() => {
-                setSelectedRoomId(null); // Kembali ke list
-                // Opsional: Bisa tambahkan logic refresh data di sini
-            }} 
-        />
-    );
+const INITIAL_FORM_STATE = {
+  id: null,
+  name: '',
+  address: '',
+  description: '',
+  facilities: [],
+  photos: [],
+  // Struktur harga dinamis
+  prices: {
+    hourly: HOURLY_OPTIONS.map(d => ({ duration: d, price: '', isActive: false })),
+    monthly: MONTHLY_OPTIONS.map(d => ({ duration: d, price: '', isActive: false })),
   }
-
-  // Tampilan Dashboard Utama (List Kamar)
-  return (
-    <div className="min-h-screen bg-[#F9F9F9] p-6 pb-24 font-sans">
-       <div className="max-w-2xl mx-auto">
-         {/* Header Dashboard */}
-         <div className="flex items-center gap-4 mb-8 pt-4">
-            <button onClick={() => navigate('/profile')} className="p-3 bg-white rounded-2xl border border-gray-100 shadow-sm hover:bg-gray-50 transition-all">
-                <ChevronLeft size={20}/>
-            </button>
-            <div>
-                <h1 className="text-xl font-black italic uppercase tracking-tighter leading-none">Dashboard Mitra</h1>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Kelola Unit & Harga Sewa</p>
-            </div>
-         </div>
-
-         {/* Konten List Kamar */}
-         {loading ? (
-            <div className="flex flex-col items-center justify-center pt-20 gap-4">
-                <Loader2 className="animate-spin text-gray-300" size={32}/>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">Memuat Data Unit...</p>
-            </div>
-         ) : myRooms.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4">
-                {myRooms.map((room) => (
-                    <div 
-                        key={room.id} 
-                        onClick={() => setSelectedRoomId(room.id)} 
-                        className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex justify-between items-center cursor-pointer hover:border-black transition-all group active:scale-98"
-                    >
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="text-[9px] font-black bg-gray-100 px-2 py-0.5 rounded text-gray-500 uppercase tracking-widest">{room.properties?.name}</span>
-                            </div>
-                            <h3 className="text-2xl font-black italic uppercase text-black leading-none">Pintu {room.room_number}</h3>
-                            <div className="flex gap-2 mt-3">
-                                <span className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wide border ${room.pricing_plan?.hourly ? 'bg-black text-white border-black' : 'bg-white text-gray-300 border-gray-100'}`}>
-                                    Transit
-                                </span>
-                                <span className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wide border ${room.pricing_plan?.monthly ? 'bg-black text-white border-black' : 'bg-white text-gray-300 border-gray-100'}`}>
-                                    Bulanan
-                                </span>
-                            </div>
-                        </div>
-                        <div className="w-14 h-14 bg-gray-50 rounded-[20px] flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors shadow-sm">
-                            <Edit size={22} />
-                        </div>
-                    </div>
-                ))}
-            </div>
-         ) : (
-             <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[40px] border-2 border-dashed border-gray-100 mt-4">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                    <PlusCircle className="text-gray-300" size={32} />
-                </div>
-                <p className="text-gray-900 font-bold text-sm uppercase italic">Belum ada kamar</p>
-                <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest text-center px-6">
-                    Pastikan Anda sudah mendaftar sebagai mitra dan menambahkan properti.
-                </p>
-             </div>
-         )}
-       </div>
-    </div>
-  );
 };
 
-// --- SUB-COMPONENT: EDITOR KAMAR (Internal) ---
-const RoomEditor = ({ roomId, onBack }) => {
-  const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('hourly'); 
-  const [selectedRoom, setSelectedRoom] = useState(null);
+const FACILITIES_LIST = ["WiFi", "AC", "Kamar Mandi Dalam", "Parkir Motor", "Parkir Mobil", "Kasur", "Lemari", "Meja Belajar"];
 
-  useEffect(() => {
-    const fetchRoomData = async () => {
-      try {
-        const { data, error } = await supabase.from('rooms').select('*').eq('id', roomId).single();
-        if (error) throw error;
-        setSelectedRoom(data);
-      } catch (err) {
-        toast({ title: "Error", description: "Gagal mengambil detail kamar.", variant: "destructive" });
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (roomId) fetchRoomData();
-  }, [roomId]);
+export default function DashboardMitra() {
+  const [properties, setProperties] = useState([]); // Nanti ini di-fetch dari Supabase
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
+  const [activeTab, setActiveTab] = useState('hourly'); // 'hourly' or 'monthly'
 
-  const handleUpdatePricing = (dur, value) => {
-    const numValue = Number(value);
-    const currentPricing = selectedRoom.pricing_plan || { hourly: {}, monthly: {} };
-    // Pastikan object hourly/monthly ada sebelum di-spread
-    const currentTabPricing = currentPricing[activeTab] || {};
+  // --- HANDLERS ---
 
-    const updatedTabData = { 
-      ...currentTabPricing,
-      [dur]: { 
-          price: numValue, 
-          active: numValue > 0 
-      }
-    };
-
-    const newPricingPlan = {
-        ...currentPricing,
-        [activeTab]: updatedTabData
-    };
-
-    setSelectedRoom({ ...selectedRoom, pricing_plan: newPricingPlan });
+  const handleOpenModal = (property = null) => {
+    if (property) {
+      setFormData(property); // Mode Edit
+    } else {
+      setFormData(INITIAL_FORM_STATE); // Mode Tambah Baru
+    }
+    setIsModalOpen(true);
   };
 
-  const toggleAmenity = (amenityName) => {
-    const currentAmenities = selectedRoom.amenities || [];
-    const updated = currentAmenities.includes(amenityName) 
-        ? currentAmenities.filter(a => a !== amenityName) 
-        : [...currentAmenities, amenityName];
-    setSelectedRoom({ ...selectedRoom, amenities: updated });
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const saveChanges = async () => {
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from('rooms').update({
-          pricing_plan: selectedRoom.pricing_plan,
-          amenities: selectedRoom.amenities,
-          updated_at: new Date()
-        }).eq('id', roomId);
+  const handleFacilityToggle = (facility) => {
+    setFormData(prev => {
+      const exists = prev.facilities.includes(facility);
+      return {
+        ...prev,
+        facilities: exists 
+          ? prev.facilities.filter(f => f !== facility)
+          : [...prev.facilities, facility]
+      };
+    });
+  };
 
-      if (error) throw error;
-      toast({ title: "Tersimpan!", description: "Perubahan harga & fasilitas berhasil disimpan." });
-    } catch (err) {
-      toast({ title: "Gagal Menyimpan", description: err.message, variant: "destructive" });
-    } finally {
-      setIsSaving(false);
+  // Logic Khusus untuk Update Harga & Toggle Aktif/Nonaktif
+  const handlePriceChange = (type, index, field, value) => {
+    setFormData(prev => {
+      const newPrices = { ...prev.prices };
+      const list = [...newPrices[type]];
+      list[index] = { ...list[index], [field]: value };
+      newPrices[type] = list;
+      return { ...prev, prices: newPrices };
+    });
+  };
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    // Di sini nanti logika save ke SUPABASE
+    // Contoh simulasi lokal:
+    if (formData.id) {
+      setProperties(prev => prev.map(p => p.id === formData.id ? formData : p));
+    } else {
+      setProperties(prev => [...prev, { ...formData, id: Date.now() }]);
+    }
+    setIsModalOpen(false);
+  };
+
+  const handleDelete = (id) => {
+    if (confirm('Yakin ingin menghapus properti ini?')) {
+      setProperties(prev => prev.filter(p => p.id !== id));
     }
   };
 
-  if (loading) return <div className="h-screen flex justify-center items-center bg-white"><Loader2 className="animate-spin text-black" size={32}/></div>;
-
   return (
-    <div className="min-h-screen bg-[#F9F9F9] pb-20 font-sans">
-      <div className="bg-white p-4 flex items-center justify-between sticky top-0 z-50 shadow-sm border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 hover:bg-gray-50 rounded-xl transition-all"><ChevronLeft size={24} /></button>
-          <div>
-            <h1 className="font-black text-sm text-gray-900 uppercase italic leading-none">Edit Pintu {selectedRoom?.room_number}</h1>
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Mode Pengaturan</p>
-          </div>
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Header Dashboard */}
+      <div className="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+        <div>
+          <h1 className="text-xl font-bold text-gray-800">Dashboard Mitra</h1>
+          <p className="text-sm text-gray-500">Kelola unit & harga sewa</p>
         </div>
         <button 
-            onClick={saveChanges} 
-            disabled={isSaving} 
-            className="bg-black text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg active:scale-95 transition-all"
+          onClick={() => handleOpenModal()}
+          className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 transition"
         >
-          {isSaving ? <Loader2 className="animate-spin" size={14}/> : <><Save size={14} /> Simpan</>}
+          <Plus size={16} /> Tambah Properti
         </button>
       </div>
 
-      <div className="max-w-2xl mx-auto p-4 space-y-6 mt-4">
-        {/* SECTION: FASILITAS */}
-        <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-          <h2 className="text-[10px] font-black text-gray-400 mb-6 tracking-[0.2em] uppercase italic flex items-center gap-2">
-            <LayoutGrid size={14}/> Fasilitas Kamar
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            {['WiFi', 'AC', 'Smart TV', 'Kamar Mandi Dalam', 'Water Heater', 'Meja Kerja', 'Lemari Pakaian', 'Dispenser'].map((item) => (
-              <button 
-                key={item} 
-                onClick={() => toggleAmenity(item)} 
-                className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${
-                    selectedRoom.amenities?.includes(item) 
-                    ? 'border-black bg-black text-white shadow-lg transform scale-[1.02]' 
-                    : 'border-gray-100 text-gray-400 hover:border-gray-200 bg-gray-50'
-                }`}
-              >
-                <span className="text-[9px] font-black uppercase tracking-widest">{item}</span>
-                {selectedRoom.amenities?.includes(item) && <Check size={14} className="text-green-400" />}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* SECTION: HARGA */}
-        <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-          <h2 className="text-[10px] font-black text-gray-400 mb-6 tracking-[0.2em] uppercase italic">Atur Durasi & Tarif</h2>
-          
-          {/* Tab Switcher */}
-          <div className="flex bg-gray-50 p-1.5 rounded-[20px] mb-8 border border-gray-100">
+      <div className="p-6 max-w-5xl mx-auto">
+        {/* EMPTY STATE (Jika belum ada properti) */}
+        {properties.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <Home className="text-gray-400" size={32} />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900">Belum Ada Properti</h3>
+            <p className="text-gray-500 mb-6 text-center max-w-sm">
+              Mulai hasilkan pendapatan dengan mendaftarkan kos atau apartemen Anda sekarang.
+            </p>
             <button 
-                onClick={() => setActiveTab('hourly')} 
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-[16px] transition-all ${
-                    activeTab === 'hourly' ? 'bg-white shadow-md text-black' : 'text-gray-400 hover:text-gray-600'
-                }`}
+              onClick={() => handleOpenModal()}
+              className="bg-black text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition transform hover:-translate-y-1"
             >
-                Transit / Jam
-            </button>
-            <button 
-                onClick={() => setActiveTab('monthly')} 
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-[16px] transition-all ${
-                    activeTab === 'monthly' ? 'bg-white shadow-md text-black' : 'text-gray-400 hover:text-gray-600'
-                }`}
-            >
-                Bulanan
+              + Tambah Properti Pertama
             </button>
           </div>
-
-          <div className="space-y-4">
-            {(activeTab === 'hourly' ? ['1', '2', '3', '4', '5', '6', '12', '24'] : ['1', '2', '3', '6', '12']).map((dur) => (
-              <div key={dur} className="flex items-center gap-4 p-2 pl-6 border border-gray-100 rounded-[24px] focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all bg-gray-50/50">
-                <div className="w-16">
-                    <span className="text-sm font-black italic block text-gray-900">{dur}</span>
-                    <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">{activeTab === 'hourly' ? 'JAM' : 'BULAN'}</span>
+        ) : (
+          /* LIST PROPERTI (Grid) */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {properties.map((prop) => (
+              <div key={prop.id} className="bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition">
+                <div className="h-48 bg-gray-200 flex items-center justify-center relative">
+                   {prop.photos.length > 0 ? (
+                     <img src={prop.photos[0]} alt={prop.name} className="w-full h-full object-cover" />
+                   ) : (
+                     <ImageIcon className="text-gray-400" size={48} />
+                   )}
+                   <div className="absolute top-2 right-2 flex gap-1">
+                     <button onClick={() => handleOpenModal(prop)} className="bg-white/90 p-2 rounded-full hover:text-blue-600"><Edit size={16}/></button>
+                     <button onClick={() => handleDelete(prop.id)} className="bg-white/90 p-2 rounded-full hover:text-red-600"><Trash2 size={16}/></button>
+                   </div>
                 </div>
-                
-                <div className="h-8 w-px bg-gray-200"></div>
-                
-                <div className="relative flex-1">
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold pl-2">Rp</span>
-                  <input
-                    type="number"
-                    value={selectedRoom.pricing_plan?.[activeTab]?.[dur]?.price || ''}
-                    onChange={(e) => handleUpdatePricing(dur, e.target.value)}
-                    className="w-full bg-transparent border-none rounded-lg py-3 pl-8 pr-4 text-sm font-bold text-black placeholder:text-gray-200 focus:ring-0"
-                    placeholder="0"
-                  />
+                <div className="p-4">
+                  <h3 className="font-bold text-lg">{prop.name}</h3>
+                  <p className="text-gray-500 text-sm truncate">{prop.address}</p>
+                  <div className="mt-4 flex gap-2 flex-wrap">
+                    {/* Tampilkan badge harga aktif */}
+                    {prop.prices.hourly.some(p => p.isActive) && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Transit Tersedia</span>}
+                    {prop.prices.monthly.some(p => p.isActive) && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Bulanan Tersedia</span>}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
+
+      {/* --- MODAL FORM (ADD / EDIT) --- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
+              <h2 className="text-lg font-bold">{formData.id ? 'Edit Properti' : 'Tambah Properti Baru'}</h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full"><X size={20}/></button>
+            </div>
+            
+            <form onSubmit={handleSave} className="p-6 space-y-8">
+              {/* 1. INFORMASI DASAR */}
+              <section className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">Informasi Dasar</h3>
+                <div className="grid gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Nama Kos / Apartemen</label>
+                    <input required name="name" value={formData.name} onChange={handleInputChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-black outline-none" placeholder="Contoh: Kosan Haurgeulis Indah" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Alamat Lengkap</label>
+                    <textarea required name="address" value={formData.address} onChange={handleInputChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-black outline-none" placeholder="Alamat lengkap properti..." rows="2" />
+                  </div>
+                </div>
+              </section>
+
+              {/* 2. FASILITAS */}
+              <section className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">Fasilitas</h3>
+                <div className="flex flex-wrap gap-2">
+                  {FACILITIES_LIST.map(fac => (
+                    <button
+                      key={fac}
+                      type="button"
+                      onClick={() => handleFacilityToggle(fac)}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition ${formData.facilities.includes(fac) ? 'bg-black text-white border-black' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                    >
+                      {fac}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* 3. SETTING HARGA (Sesuai Request) */}
+              <section className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">Tarif & Durasi</h3>
+                  {/* Tab Switcher */}
+                  <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <button type="button" onClick={() => setActiveTab('hourly')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${activeTab === 'hourly' ? 'bg-white shadow text-black' : 'text-gray-500'}`}>Jam (Transit)</button>
+                    <button type="button" onClick={() => setActiveTab('monthly')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${activeTab === 'monthly' ? 'bg-white shadow text-black' : 'text-gray-500'}`}>Bulanan</button>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-xl border">
+                  {/* RENDER LIST HARGA BERDASARKAN TAB */}
+                  {(activeTab === 'hourly' ? formData.prices.hourly : formData.prices.monthly).map((priceItem, idx) => (
+                    <div key={idx} className="flex items-center gap-4 mb-3 last:mb-0">
+                      
+                      {/* Toggle Switch */}
+                      <label className="flex items-center cursor-pointer min-w-[120px]">
+                        <div className="relative">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only" 
+                            checked={priceItem.isActive}
+                            onChange={(e) => handlePriceChange(activeTab, idx, 'isActive', e.target.checked)}
+                          />
+                          <div className={`block w-10 h-6 rounded-full transition ${priceItem.isActive ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                          <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform ${priceItem.isActive ? 'translate-x-4' : ''}`}></div>
+                        </div>
+                        <span className="ml-3 text-sm font-medium text-gray-700">
+                          {priceItem.duration} {activeTab === 'hourly' ? 'Jam' : 'Bulan'}
+                        </span>
+                      </label>
+
+                      {/* Input Harga (Hanya muncul jika toggle ON) */}
+                      {priceItem.isActive && (
+                        <div className="flex-1 relative animate-in fade-in slide-in-from-left-2 duration-200">
+                          <span className="absolute left-3 top-2 text-gray-500 text-sm">Rp</span>
+                          <input 
+                            type="number" 
+                            placeholder="0"
+                            value={priceItem.price}
+                            onChange={(e) => handlePriceChange(activeTab, idx, 'price', e.target.value)}
+                            className="w-full pl-9 pr-3 py-1.5 text-sm border rounded-md focus:ring-1 focus:ring-black outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* FOOTER MODAL */}
+              <div className="pt-4 border-t flex justify-end gap-3 sticky bottom-0 bg-white pb-2">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg border text-sm font-medium hover:bg-gray-50">Batal</button>
+                <button type="submit" className="px-5 py-2.5 rounded-lg bg-black text-white text-sm font-medium hover:bg-gray-800 flex items-center gap-2">
+                  <Save size={16} /> Simpan Properti
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default DashboardMitra;
+}
